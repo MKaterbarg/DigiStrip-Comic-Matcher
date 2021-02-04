@@ -13,14 +13,33 @@ Module Program
 
         Dim MovedCounter = 0
         Dim FailedCounter = 0
+        Dim RemovedCounter = 0
+
         If args.Count < 2 Then
 
             Console.WriteLine("Please provide both the source path and destination path as arguments.")
             Console.WriteLine("Usage: DigiStripComicMatcher.exe SourcePath DestinationPath")
             Console.WriteLine("All files in the Source Path, and subdirectories, will be scanned and based on their CRC32 hash be moved to the Destination Path.")
+            Console.WriteLine("")
+            Console.WriteLine("For more detailed information, please use: DigiStripComicMatcher.exe -help")
             Exit Sub
 
         End If
+        Dim RemoveDuplicate As Boolean = False
+        For Each arg In args
+            If arg = "-Help" Then
+
+                Help()
+                Exit Sub
+
+            End If
+
+            If arg = "-RemoveDuplicate" Then
+
+                RemoveDuplicate = True
+
+            End If
+        Next
 
         Dim sourcePath = args(0)
         Dim destPath = args(1)
@@ -47,43 +66,63 @@ Module Program
             Console.WriteLine("File Found: " + f.Name)
             Console.WriteLine("CRC:" + CRC)
 
-            Dim FoundIssue As Linq.JArray = FindByCRC32(CRC)
+            If CRC.Length > 0 Then
 
-            If FoundIssue.Count = 1 Then
+                Dim FoundIssue As Linq.JArray = FindByCRC32(CRC)
 
-                Console.WriteLine("Match Found. Moving file")
+                If FoundIssue.Count = 1 Then
 
-                If Not Directory.Exists(destPath + "/" + FoundIssue(0)("comic")("name").ToString) Then
-                    Try
-                        MkDir(destPath + "/" + FoundIssue(0)("comic")("name").ToString)
-                    Catch ex As Exception
+                    Console.WriteLine("Match Found. Moving file")
 
-                        Console.WriteLine("Unable to create directory " + destPath + "/" + FoundIssue(0)("comic")("name").ToString)
-                        Exit Sub
-                    End Try
-                End If
+                    If Not Directory.Exists(destPath + "/" + FoundIssue(0)("comic")("name").ToString) Then
+                        Try
+                            MkDir(destPath + "/" + FoundIssue(0)("comic")("name").ToString)
+                        Catch ex As Exception
 
-                If Not IO.File.Exists(destPath + "/" + FoundIssue(0)("comic")("name").ToString + "/" + FoundIssue(0)("filename").ToString) Then
-                    Try
-                        f.MoveTo(destPath + "/" + FoundIssue(0)("comic")("name").ToString + "/" + FoundIssue(0)("filename").ToString)
-                        MovedCounter += 1
-                    Catch ex As Exception
+                            Console.WriteLine("Unable to create directory " + destPath + "/" + FoundIssue(0)("comic")("name").ToString)
+                            Exit Sub
+                        End Try
+                    End If
 
-                        FailedCounter += 1
-                    End Try
+                    If Not IO.File.Exists(destPath + "/" + FoundIssue(0)("comic")("name").ToString + "/" + FoundIssue(0)("filename").ToString) Then
+                        Try
+                            f.MoveTo(destPath + "/" + FoundIssue(0)("comic")("name").ToString + "/" + FoundIssue(0)("filename").ToString)
+                            MovedCounter += 1
+                        Catch ex As Exception
+
+                            FailedCounter += 1
+                        End Try
+                    Else
+                        If RemoveDuplicate = True Then
+                            f.Delete()
+                            RemovedCounter += 1
+                        Else
+                            FailedCounter += 1
+                        End If
+
+                    End If
+
                 Else
                     FailedCounter += 1
                 End If
-
             Else
+
                 FailedCounter += 1
             End If
 
+
         Next
 
-        Console.WriteLine("All Done. Failed: " + FailedCounter.ToString + ". Succes: " + MovedCounter.ToString)
+        Console.WriteLine("All Done. " + vbNewLine +
+                          "Failed: " + FailedCounter.ToString + vbNewLine +
+                          "Succes: " + MovedCounter.ToString + vbNewLine +
+                          "Removed: " + RemovedCounter.ToString)
 
 
+    End Sub
+
+    Private Sub Help()
+        Throw New NotImplementedException()
     End Sub
 
     Public Function FindByCRC32(CRC32 As String) As JArray
